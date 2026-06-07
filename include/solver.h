@@ -1,20 +1,19 @@
 #pragma once
-#include<bits/stdc++.h>
 #include "pattern.h"
+#include <bits/stdc++.h>
 using namespace std;
 
-class solver{
+class Solver {
     public:
-    solver(string);
-    string bestGuess();
-    void filterWords(pattern& p);
-    void reset(); 
+        Solver(string guessSetFile, string candidateSetFile,
+               string candidateSetIdxFile, string patMatrixFile);
+        string bestGuess();
+        void filterWords(pattern &p);
+        void reset();
+        double entropyScore(int guess);
+
+        vector<int> candidateSet;
+        int prev_guess;
 
     private:
-    vector<vector<int>> matrix;
-    vector<string> all;
-    vector<int> remaining;
-    int prev_guess;
-    void buildMatrix();
-    double entropyScore(int x);
 };

@@ -1,0 +1,3 @@
+/home/ntronyx/workspace/Nerdle-solver/build/CMakeFiles/WordleSolver.dir
+/home/ntronyx/workspace/Nerdle-solver/build/CMakeFiles/edit_cache.dir
+/home/ntronyx/workspace/Nerdle-solver/build/CMakeFiles/rebuild_cache.dir
