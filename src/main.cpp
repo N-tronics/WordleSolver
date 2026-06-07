@@ -7,13 +7,16 @@ int main() {
              "data/candidate-set-indices.txt", "data/pattern-matrix.bin");
 
     cout << s.candidateSet.size() << " " << s.bestGuess() << endl;
-    vector<int> res1{0, 0, 0, 0, 0};
-    s.filterWords(res1);
+    vector<int> res{0, 0, 0, 1, 1};
+    s.filterWords(res);
     cout << s.candidateSet.size() << " " << s.bestGuess() << endl;
-    vector<int> res2{0, 0, 0, 0, 1};
-    s.filterWords(res2);
+    res = {0, 2, 0, 2, 2};
+    s.filterWords(res);
     cout << s.candidateSet.size() << " " << s.bestGuess() << endl;
-    vector<int> res3{0, 1, 0, 2, 0};
-    s.filterWords(res3);
+    res = {0, 0, 1, 1, 0};
+    s.filterWords(res);
+    cout << s.candidateSet.size() << " " << s.bestGuess() << endl;
+    res = {0, 0, 0, 0, 0};
+    s.filterWords(res);
     cout << s.candidateSet.size() << " " << s.bestGuess() << endl;
 }

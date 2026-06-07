@@ -6,14 +6,15 @@ using namespace std;
 class Solver {
     public:
         Solver(string guessSetFile, string candidateSetFile,
-               string candidateSetIdxFile, string patMatrixFile);
+               string candidateSetIndicesFile, string patMatrixFile);
         string bestGuess();
         void filterWords(pattern &p);
         void reset();
         double entropyScore(int guess);
 
-        vector<int> candidateSet;
+        vector<pair<int, int>> candidateSet;
         int prev_guess;
 
     private:
+        int bestGuessIdx();
 };

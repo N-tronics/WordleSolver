@@ -2,10 +2,21 @@
 #include "pattern.h"
 #include <bits/stdc++.h>
 #include <cstdint>
+#include <filesystem>
+#include <stdexcept>
+#include <utility>
 using namespace std;
 
 Solver::Solver(string guessSetFile, string candidateSetFile,
-               string candidateSetIdxFile, string patMatrixFile) {
+               string candidateSetIndicesFile, string patMatrixFile) {
+    if (!filesystem::exists(guessSetFile))
+        throw runtime_error("File '" + guessSetFile + "' does not exist");
+    if (!filesystem::exists(candidateSetFile))
+        throw runtime_error("File '" + candidateSetFile + "' does not exist");
+    if (!filesystem::exists(candidateSetIndicesFile))
+        throw runtime_error("File '" + candidateSetIndicesFile +
+                            "' does not exist");
+
     PatternEngine::init();
     // Load word sets
     ifstream gsfile(guessSetFile);
@@ -19,11 +30,11 @@ Solver::Solver(string guessSetFile, string candidateSetFile,
     while (getline(csfile, word))
         PatternEngine::candidateSetWords[i++] = word;
 
-    ifstream csifile(candidateSetIdxFile);
-    i = 0;
     candidateSet.resize(CANDIDATE_SET_SIZE);
+    ifstream csifile(candidateSetIndicesFile);
+    i = 0;
     while (getline(csifile, word))
-        candidateSet[i++] = stoi(word);
+        candidateSet[i++] = make_pair(i, stoi(word));
 
     cout << "Word sets have been loaded" << endl;
 
@@ -36,21 +47,25 @@ Solver::Solver(string guessSetFile, string candidateSetFile,
         PatternEngine::precomputeMatrix(patMatrixFile);
     }
     cout << "done" << endl;
+
+    prev_guess = -1;
 }
 
 void Solver::filterWords(pattern &p) {
+    if (prev_guess == -1)
+        return;
     uint8_t target = PatternEngine::encodePattern(p);
-    vector<int> new_rem;
+    vector<pair<int, int>> new_rem;
     for (auto i : candidateSet)
-        if (PatternEngine::patternMatrix[prev_guess][i] == target)
+        if (PatternEngine::patternMatrix[prev_guess][i.first] == target)
             new_rem.push_back(i);
     candidateSet = new_rem;
 }
 
 double Solver::entropyScore(int guess) {
     unordered_map<int, int> buckets;
-    for (int i : candidateSet)
-        buckets[PatternEngine::patternMatrix[guess][i]]++;
+    for (auto i : candidateSet)
+        buckets[PatternEngine::patternMatrix[guess][i.first]]++;
 
     double total = candidateSet.size();
     double entropy = 0;
@@ -62,6 +77,16 @@ double Solver::entropyScore(int guess) {
 }
 
 string Solver::bestGuess() {
+    prev_guess = bestGuessIdx();
+    if (prev_guess == -1)
+        throw runtime_error("Cannot compute best guess");
+    return PatternEngine::guessSet[prev_guess];
+}
+
+int Solver::bestGuessIdx() {
+    if (candidateSet.size() == 1)
+        return candidateSet[0].second;
+
     double ma = -1e8;
     int maxidx = -1;
     for (int i = 0; i < GUESS_SET_SIZE; i++) {
@@ -71,14 +96,14 @@ string Solver::bestGuess() {
             maxidx = i;
         }
     }
-    prev_guess = maxidx;
-    return PatternEngine::guessSet[maxidx];
+    return maxidx;
 }
 
 void Solver::reset() {
+    // TODO: FIX
     vector<int> new_rem;
     for (int i = 0; i < CANDIDATE_SET_SIZE; i++)
         new_rem.push_back(i);
-    candidateSet = new_rem;
+    // candidateSet = new_rem;
     prev_guess = -1;
 }
