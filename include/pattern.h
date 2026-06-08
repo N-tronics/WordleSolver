@@ -6,6 +6,7 @@ constexpr int WORD_LEN = 5;
 constexpr int GREEN = 2, YELLOW = 1, GREY = 0;
 constexpr int GUESS_SET_SIZE = 12972;
 constexpr int CANDIDATE_SET_SIZE = 2315;
+constexpr uint8_t CORRECT_GUESS = 242;
 
 using pattern = vector<int>;
 

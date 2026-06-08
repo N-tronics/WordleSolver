@@ -1,3 +1,6 @@
+import struct
+
+
 def sort_file(file):
     with open(file, "r") as f:
         words = [line.strip() for line in f if line.strip()]
@@ -17,6 +20,7 @@ if __name__ == "__main__":
             for word in candidate_words:
                 word_indices.append(guess_words.index(word))
 
-        with open("candidate-set-indices.txt", "w") as f:
-            for idx in word_indices:
-                f.write(f"{idx}\n")
+        bin_data = struct.pack(f"<{len(word_indices)}H", *word_indices)
+        print(len(word_indices))
+        with open("candidate-set-indices.bin", "wb") as f:
+            f.write(bin_data)

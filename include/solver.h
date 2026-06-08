@@ -13,8 +13,10 @@ class Solver {
         double entropyScore(int guess);
 
         vector<pair<int, int>> candidateSet;
+        int candidateSetSize;
         int prev_guess;
 
     private:
         int bestGuessIdx();
+        void loadCSIFile(string candidateSetIndicesFile);
 };

@@ -1,10 +1,6 @@
 #include "solver.h"
 #include "pattern.h"
 #include <bits/stdc++.h>
-#include <cstdint>
-#include <filesystem>
-#include <stdexcept>
-#include <utility>
 using namespace std;
 
 Solver::Solver(string guessSetFile, string candidateSetFile,
@@ -30,11 +26,8 @@ Solver::Solver(string guessSetFile, string candidateSetFile,
     while (getline(csfile, word))
         PatternEngine::candidateSetWords[i++] = word;
 
-    candidateSet.resize(CANDIDATE_SET_SIZE);
-    ifstream csifile(candidateSetIndicesFile);
-    i = 0;
-    while (getline(csifile, word))
-        candidateSet[i++] = make_pair(i, stoi(word));
+    loadCSIFile(candidateSetIndicesFile);
+    reset();
 
     cout << "Word sets have been loaded" << endl;
 
@@ -55,22 +48,26 @@ void Solver::filterWords(pattern &p) {
     if (prev_guess == -1)
         return;
     uint8_t target = PatternEngine::encodePattern(p);
-    vector<pair<int, int>> new_rem;
-    for (auto i : candidateSet)
-        if (PatternEngine::patternMatrix[prev_guess][i.first] == target)
-            new_rem.push_back(i);
-    candidateSet = new_rem;
+
+    int new_size = 0;
+    for (int i = 0; i < candidateSetSize; i++)
+        if (PatternEngine::patternMatrix[prev_guess][candidateSet[i].first] ==
+            target)
+            swap(candidateSet[new_size++], candidateSet[i]);
+    candidateSetSize = new_size;
 }
 
 double Solver::entropyScore(int guess) {
-    unordered_map<int, int> buckets;
-    for (auto i : candidateSet)
-        buckets[PatternEngine::patternMatrix[guess][i.first]]++;
+    int buckets[243]{};
+    for (int i = 0; i < candidateSetSize; i++)
+        buckets[PatternEngine::patternMatrix[guess][candidateSet[i].first]]++;
 
-    double total = candidateSet.size();
+    double total = candidateSetSize;
     double entropy = 0;
-    for (auto [b, count] : buckets) {
-        double prob = count / total;
+    for (int b = 0; b < 243; b++) {
+        if (!buckets[b])
+            continue;
+        double prob = buckets[b] / total;
         entropy += prob * log2(prob);
     }
     return -entropy;
@@ -84,15 +81,23 @@ string Solver::bestGuess() {
 }
 
 int Solver::bestGuessIdx() {
-    if (candidateSet.size() == 1)
+    int n = candidateSetSize;
+    if (n <= 2)
         return candidateSet[0].second;
+
+    unordered_set<int> candSet;
+    candSet.reserve(n);
+    for (int i = 0; i < candidateSetSize; i++)
+        candSet.insert(candidateSet[i].second);
 
     double ma = -1e8;
     int maxidx = -1;
     for (int i = 0; i < GUESS_SET_SIZE; i++) {
-        double x = entropyScore(i);
-        if (x > ma) {
-            ma = x;
+        double entropy = entropyScore(i);
+        if (candSet.contains(i))
+            entropy += 0.001;
+        if (entropy > ma) {
+            ma = entropy;
             maxidx = i;
         }
     }
@@ -100,10 +105,17 @@ int Solver::bestGuessIdx() {
 }
 
 void Solver::reset() {
-    // TODO: FIX
-    vector<int> new_rem;
-    for (int i = 0; i < CANDIDATE_SET_SIZE; i++)
-        new_rem.push_back(i);
-    // candidateSet = new_rem;
+    candidateSetSize = CANDIDATE_SET_SIZE;
     prev_guess = -1;
+}
+
+void Solver::loadCSIFile(string candidateSetIndicesFile) {
+    candidateSet.resize(CANDIDATE_SET_SIZE);
+    ifstream csifile(candidateSetIndicesFile, ios::in | ios::binary);
+    uint16_t idx;
+    for (int i = 0; i < CANDIDATE_SET_SIZE; i++) {
+        csifile.read(reinterpret_cast<char *>(&idx), sizeof(uint16_t));
+        candidateSet[i].first = i;
+        candidateSet[i].second = (int)idx;
+    }
 }
