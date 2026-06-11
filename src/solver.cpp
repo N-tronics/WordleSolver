@@ -51,8 +51,7 @@ void Solver::filterWords(pattern &p) {
 
     int new_size = 0;
     for (int i = 0; i < candidateSetSize; i++)
-        if (PatternEngine::patternMatrix[prev_guess][candidateSet[i].first] ==
-            target)
+        if (PatternEngine::pm(prev_guess, candidateSet[i].first) == target)
             swap(candidateSet[new_size++], candidateSet[i]);
     candidateSetSize = new_size;
 }
@@ -60,7 +59,7 @@ void Solver::filterWords(pattern &p) {
 double Solver::entropyScore(int guess) {
     int buckets[243]{};
     for (int i = 0; i < candidateSetSize; i++)
-        buckets[PatternEngine::patternMatrix[guess][candidateSet[i].first]]++;
+        buckets[PatternEngine::pm(guess, candidateSet[i].first)]++;
 
     double total = candidateSetSize;
     double entropy = 0;

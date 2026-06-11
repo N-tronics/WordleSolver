@@ -15,8 +15,8 @@ class Solver {
         vector<pair<int, int>> candidateSet;
         int candidateSetSize;
         int prev_guess;
+        int bestGuessIdx();
 
     private:
-        int bestGuessIdx();
         void loadCSIFile(string candidateSetIndicesFile);
 };

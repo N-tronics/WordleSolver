@@ -1,15 +1,15 @@
 #include "pattern.h"
+#include <cstdint>
+#include <stdexcept>
 
 vector<string> PatternEngine::guessSet;
 vector<string> PatternEngine::candidateSetWords;
-vector<vector<uint8_t>> PatternEngine::patternMatrix;
+vector<uint8_t> PatternEngine::patternMatrix;
 
 void PatternEngine::init() {
     guessSet.resize(GUESS_SET_SIZE);
     candidateSetWords.resize(CANDIDATE_SET_SIZE);
-    patternMatrix.resize(GUESS_SET_SIZE);
-    for (auto &guess : patternMatrix)
-        guess.resize(CANDIDATE_SET_SIZE);
+    patternMatrix.resize(GUESS_SET_SIZE * CANDIDATE_SET_SIZE);
 }
 
 pattern PatternEngine::getPattern(string &guess, string &ans) {
@@ -42,6 +42,10 @@ uint8_t PatternEngine::encodePattern(pattern &p) {
     return ans;
 }
 
+uint8_t PatternEngine::pm(int guess, int cand) {
+    return patternMatrix[guess * CANDIDATE_SET_SIZE + cand];
+}
+
 pattern PatternEngine::decodePattern(uint8_t x) {
     pattern ans(WORD_LEN);
     for (int i = WORD_LEN - 1; i >= 0; i--) {
@@ -52,26 +56,20 @@ pattern PatternEngine::decodePattern(uint8_t x) {
 }
 
 void PatternEngine::loadPatternMatrix(string fname) {
-    ifstream file(fname, ios::binary | ios::in);
-    for (int i = 0; i < GUESS_SET_SIZE; i++) {
-        for (int j = 0; j < CANDIDATE_SET_SIZE; j++) {
-            file.read(reinterpret_cast<char *>(&patternMatrix[i][j]),
-                      sizeof(uint8_t));
-        }
-    }
-    file.close();
+    ifstream file(fname, ios::binary);
+    if (!file)
+        throw std::runtime_error("Cannot open " + fname);
+    file.read(reinterpret_cast<char *>(patternMatrix.data()),
+              GUESS_SET_SIZE * CANDIDATE_SET_SIZE);
 }
 
 void PatternEngine::precomputeMatrix(string fname) {
-    PatternEngine::buildMatrix();
-    ofstream file(fname, ios::binary | ios::out);
-    for (int i = 0; i < GUESS_SET_SIZE; i++) {
-        for (int j = 0; j < CANDIDATE_SET_SIZE; j++) {
-            file.write(reinterpret_cast<const char *>(&patternMatrix[i][j]),
-                       sizeof(uint8_t));
-        }
-    }
-    file.close();
+    buildMatrix();
+    ofstream file(fname, ios::binary);
+    if (!file)
+        throw std::runtime_error("Cannot open " + fname);
+    file.write(reinterpret_cast<const char *>(patternMatrix.data()),
+               GUESS_SET_SIZE * CANDIDATE_SET_SIZE);
 }
 
 void PatternEngine::buildMatrix() {
@@ -79,7 +77,8 @@ void PatternEngine::buildMatrix() {
         for (int j = 0; j < CANDIDATE_SET_SIZE; j++) {
             pattern pat =
                 PatternEngine::getPattern(guessSet[i], candidateSetWords[j]);
-            patternMatrix[i][j] = PatternEngine::encodePattern(pat);
+            patternMatrix[i * CANDIDATE_SET_SIZE + j] =
+                PatternEngine::encodePattern(pat);
         }
     }
 }

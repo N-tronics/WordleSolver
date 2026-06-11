@@ -6,6 +6,8 @@ int main() {
     Solver s("data/guess-set.txt", "data/candidate-set.txt",
              "data/candidate-set-indices.bin", "data/pattern-matrix.bin");
 
+    cout << s.bestGuess() << " " << s.entropyScore(s.bestGuessIdx()) << endl;
+
     vector<int> nGuesses;
     vector<string> failures;
     for (int i = 0; i < CANDIDATE_SET_SIZE; i++) {

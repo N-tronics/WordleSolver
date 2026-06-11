@@ -13,11 +13,12 @@ using pattern = vector<int>;
 class PatternEngine {
     public:
         static vector<string> guessSet, candidateSetWords;
-        static vector<vector<uint8_t>> patternMatrix;
+        static vector<uint8_t> patternMatrix;
 
         static void init();
         static pattern getPattern(string &guess, string &ans);
         static uint8_t encodePattern(pattern &p);
+        static uint8_t pm(int guess, int cand);
         static pattern decodePattern(uint8_t x);
 
         static void buildMatrix();
