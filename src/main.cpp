@@ -7,6 +7,7 @@ int main() {
              "data/candidate-set-indices.bin", "data/pattern-matrix.bin");
 
     cout << s.bestGuess() << " " << s.entropyScore(s.bestGuessIdx()) << endl;
+    return 0;
 
     vector<int> nGuesses;
     vector<string> failures;

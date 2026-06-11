@@ -12,6 +12,31 @@ void PatternEngine::init() {
     patternMatrix.resize(GUESS_SET_SIZE * CANDIDATE_SET_SIZE);
 }
 
+uint8_t computePattern(const std::string &guess, const std::string &ans) {
+    int8_t p[WORD_LEN]{};
+    int8_t freq[26]{};
+
+    for (int i = 0; i < WORD_LEN; i++) {
+        freq[ans[i] - 'a']++;
+        if (guess[i] == ans[i]) {
+            p[i] = GREEN;
+            freq[ans[i] - 'a']--;
+        }
+    }
+    // Mark yellows
+    uint8_t code = 0;
+    for (int i = 0; i < WORD_LEN; i++) {
+        if (p[i] != GREEN) {
+            int c = guess[i] - 'a';
+            p[i] = (freq[c] > 0) ? (freq[c]--, YELLOW) : GREY;
+        }
+    }
+    // Encode base-3 inline
+    for (int i = 0; i < WORD_LEN; i++)
+        code = code * 3 + p[i];
+    return code;
+}
+
 pattern PatternEngine::getPattern(string &guess, string &ans) {
     pattern p(WORD_LEN, 0);
     unordered_map<char, int> a;
@@ -73,12 +98,8 @@ void PatternEngine::precomputeMatrix(string fname) {
 }
 
 void PatternEngine::buildMatrix() {
-    for (int i = 0; i < GUESS_SET_SIZE; i++) {
-        for (int j = 0; j < CANDIDATE_SET_SIZE; j++) {
-            pattern pat =
-                PatternEngine::getPattern(guessSet[i], candidateSetWords[j]);
+    for (int i = 0; i < GUESS_SET_SIZE; i++)
+        for (int j = 0; j < CANDIDATE_SET_SIZE; j++)
             patternMatrix[i * CANDIDATE_SET_SIZE + j] =
-                PatternEngine::encodePattern(pat);
-        }
-    }
+                computePattern(guessSet[i], candidateSetWords[j]);
 }
