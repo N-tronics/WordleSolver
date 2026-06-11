@@ -1,6 +1,6 @@
 #pragma once
-#include "pattern.h"
 #include <bits/stdc++.h>
+#include <pattern.h>
 using namespace std;
 
 class Solver {
@@ -19,4 +19,5 @@ class Solver {
 
     private:
         void loadCSIFile(string candidateSetIndicesFile);
+        vector<uint16_t> csiData;
 };

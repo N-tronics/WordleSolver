@@ -1,5 +1,5 @@
-#include "pattern.h"
 #include <cstdint>
+#include <pattern.h>
 #include <stdexcept>
 
 vector<string> PatternEngine::guessSet;
@@ -12,7 +12,8 @@ void PatternEngine::init() {
     patternMatrix.resize(GUESS_SET_SIZE * CANDIDATE_SET_SIZE);
 }
 
-uint8_t computePattern(const std::string &guess, const std::string &ans) {
+uint8_t PatternEngine::computePattern(const std::string &guess,
+                                      const std::string &ans) {
     int8_t p[WORD_LEN]{};
     int8_t freq[26]{};
 

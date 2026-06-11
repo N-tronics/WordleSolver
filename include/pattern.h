@@ -17,6 +17,8 @@ class PatternEngine {
 
         static void init();
         static pattern getPattern(string &guess, string &ans);
+        static uint8_t computePattern(const std::string &guess,
+                                      const std::string &ans);
         static uint8_t encodePattern(pattern &p);
         static uint8_t pm(int guess, int cand);
         static pattern decodePattern(uint8_t x);

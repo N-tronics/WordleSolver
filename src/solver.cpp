@@ -1,6 +1,6 @@
-#include "solver.h"
-#include "pattern.h"
 #include <bits/stdc++.h>
+#include <pattern.h>
+#include <solver.h>
 using namespace std;
 
 Solver::Solver(string guessSetFile, string candidateSetFile,
@@ -58,8 +58,10 @@ void Solver::filterWords(pattern &p) {
 
 double Solver::entropyScore(int guess) {
     int buckets[243]{};
+    const uint8_t *row =
+        PatternEngine::patternMatrix.data() + guess * CANDIDATE_SET_SIZE;
     for (int i = 0; i < candidateSetSize; i++)
-        buckets[PatternEngine::pm(guess, candidateSet[i].first)]++;
+        buckets[row[candidateSet[i].first]]++;
 
     double total = candidateSetSize;
     double entropy = 0;
@@ -84,17 +86,15 @@ int Solver::bestGuessIdx() {
     if (n <= 2)
         return candidateSet[0].second;
 
-    unordered_set<int> candSet;
-    candSet.reserve(n);
-    for (int i = 0; i < candidateSetSize; i++)
-        candSet.insert(candidateSet[i].second);
+    static bool isCand[GUESS_SET_SIZE];
+    std::memset(isCand, 0, sizeof(bool) * GUESS_SET_SIZE);
+    for (int i = 0; i < n; i++)
+        isCand[candidateSet[i].second] = true;
 
-    double ma = -1e8;
+    double ma = -1e18;
     int maxidx = -1;
     for (int i = 0; i < GUESS_SET_SIZE; i++) {
-        double entropy = entropyScore(i);
-        if (candSet.contains(i))
-            entropy += 0.001;
+        double entropy = entropyScore(i) + (isCand[i] ? 0.001 : 0.0);
         if (entropy > ma) {
             ma = entropy;
             maxidx = i;
@@ -104,17 +104,26 @@ int Solver::bestGuessIdx() {
 }
 
 void Solver::reset() {
+    for (int i = 0; i < CANDIDATE_SET_SIZE; i++) {
+        candidateSet[i].first = i;
+        candidateSet[i].second = csiData[i];
+    }
     candidateSetSize = CANDIDATE_SET_SIZE;
     prev_guess = -1;
 }
 
 void Solver::loadCSIFile(string candidateSetIndicesFile) {
+    ifstream csifile(candidateSetIndicesFile, ios::binary);
+    if (!csifile)
+        throw std::runtime_error("Could not open " + candidateSetIndicesFile);
+
     candidateSet.resize(CANDIDATE_SET_SIZE);
-    ifstream csifile(candidateSetIndicesFile, ios::in | ios::binary);
-    uint16_t idx;
+    csiData.resize(CANDIDATE_SET_SIZE);
+    csifile.read(reinterpret_cast<char *>(csiData.data()),
+                 CANDIDATE_SET_SIZE * sizeof(uint16_t));
+
     for (int i = 0; i < CANDIDATE_SET_SIZE; i++) {
-        csifile.read(reinterpret_cast<char *>(&idx), sizeof(uint16_t));
         candidateSet[i].first = i;
-        candidateSet[i].second = (int)idx;
+        candidateSet[i].second = csiData[i];
     }
 }

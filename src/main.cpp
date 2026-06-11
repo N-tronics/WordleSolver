@@ -7,7 +7,6 @@ int main() {
              "data/candidate-set-indices.bin", "data/pattern-matrix.bin");
 
     cout << s.bestGuess() << " " << s.entropyScore(s.bestGuessIdx()) << endl;
-    return 0;
 
     vector<int> nGuesses;
     vector<string> failures;
@@ -18,8 +17,8 @@ int main() {
              << flush;
         for (int g = 1; g <= 7; g++) {
             string guess = s.bestGuess();
-            pattern p = PatternEngine::getPattern(guess, curAnswer);
-            if (PatternEngine::encodePattern(p) == CORRECT_GUESS) {
+            uint8_t p = PatternEngine::computePattern(guess, curAnswer);
+            if (p == CORRECT_GUESS) {
                 nGuesses.push_back(g);
                 cout << "Took " << g << " guesses" << endl;
                 break;
@@ -28,7 +27,8 @@ int main() {
                 cout << "Failed" << endl;
                 break;
             }
-            s.filterWords(p);
+            pattern pat = PatternEngine::decodePattern(p);
+            s.filterWords(pat);
         }
     }
     cout << "Correct guesses: " << nGuesses.size() << endl;
