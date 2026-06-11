@@ -98,6 +98,7 @@ void PatternEngine::precomputeMatrix(string fname) {
 }
 
 void PatternEngine::buildMatrix() {
+#pragma omp parallel for schedule(dynamic, 64)
     for (int i = 0; i < GUESS_SET_SIZE; i++)
         for (int j = 0; j < CANDIDATE_SET_SIZE; j++)
             patternMatrix[i * CANDIDATE_SET_SIZE + j] =
