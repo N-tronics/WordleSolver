@@ -1,3 +1,4 @@
+#include <algorithm>
 #include <cstdint>
 #include <pattern.h>
 #include <stdexcept>
@@ -16,7 +17,7 @@ uint8_t PatternEngine::computePattern(const std::string &guess,
                                       const std::string &ans) {
     int8_t p[WORD_LEN]{};
     int8_t freq[26]{};
-
+    // Mark greens
     for (int i = 0; i < WORD_LEN; i++) {
         freq[ans[i] - 'a']++;
         if (guess[i] == ans[i]) {
@@ -38,30 +39,9 @@ uint8_t PatternEngine::computePattern(const std::string &guess,
     return code;
 }
 
-pattern PatternEngine::getPattern(string &guess, string &ans) {
-    pattern p(WORD_LEN, 0);
-    unordered_map<char, int> a;
-    // holds remaining usable chars
-    for (int i = 0; i < WORD_LEN; i++) {
-        a[ans[i]]++;
-        if (guess[i] == ans[i]) {
-            p[i] = 2;
-            a[ans[i]]--;
-        }
-    }
-    for (int i = 0; i < WORD_LEN; i++) {
-        if (p[i] == 2)
-            continue;
-        if (a.count(guess[i]) && a[guess[i]] > 0) {
-            p[i] = 1;
-            a[guess[i]]--;
-        } else
-            p[i] = 0;
-    }
-    return p;
-}
-
 uint8_t PatternEngine::encodePattern(pattern &p) {
+    // vector = {  2,  1,  0,  0,  2};
+    // number =  3^4 3^3 3^2 3^1 3^0
     uint8_t ans = 0;
     for (auto i : p)
         ans = ans * 3 + i;
@@ -99,6 +79,8 @@ void PatternEngine::precomputeMatrix(string fname) {
 }
 
 void PatternEngine::buildMatrix() {
+    // Uses OpenMP for parallelizing the computation as it is indenpendent of
+    // other computations
 #pragma omp parallel for schedule(dynamic, 64)
     for (int i = 0; i < GUESS_SET_SIZE; i++)
         for (int j = 0; j < CANDIDATE_SET_SIZE; j++)
@@ -107,6 +89,7 @@ void PatternEngine::buildMatrix() {
 }
 
 int PatternEngine::getWordGuessIdx(string word) {
-    auto it = find(guessSet.begin(), guessSet.end(), word);
+    // Use binary search to find the word as the guessSet is sorted
+    auto it = lower_bound(guessSet.begin(), guessSet.end(), word);
     return it == guessSet.end() ? -1 : distance(guessSet.begin(), it);
 }

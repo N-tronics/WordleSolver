@@ -11,6 +11,7 @@ using namespace std;
 Solver::Solver(string guessSetFile, string candidateSetFile,
                string candidateSetIndicesFile, string patMatrixFile,
                string mmCacheFile) {
+    // Ensures essential files are present
     if (!filesystem::exists(guessSetFile))
         throw runtime_error("File '" + guessSetFile + "' does not exist");
     if (!filesystem::exists(candidateSetFile))
@@ -47,6 +48,7 @@ Solver::Solver(string guessSetFile, string candidateSetFile,
     }
     cout << "done" << endl;
 
+    // Load the minimax cache from file, otherwise precompute it
     if (filesystem::exists(mmCacheFile)) {
         cout << "Loading existing minimax cache ... " << flush;
         loadMMCache(mmCacheFile);
@@ -59,12 +61,20 @@ Solver::Solver(string guessSetFile, string candidateSetFile,
 }
 
 double Solver::entropyScore(int guess, span<const pair<int, int>> candSet) {
+    // This function is called heavily so it must be optimized and not make too
+    // many heavy dynamic allocations
+
+    // We create buckets for each pattern 0 ~ 242 to hold the number of elements
+    // following each pattern
     int buckets[243]{};
+    // Store a pointer to the corresponding row in the patternMatrix to avoid
+    // calling PatternEngine::pm() too many times
     const uint8_t *row =
         PatternEngine::patternMatrix.data() + guess * CANDIDATE_SET_SIZE;
     for (auto &c : candSet)
         buckets[row[c.first]]++;
 
+    // entropy computation
     double total = candSet.size();
     if (total == 0)
         return 0.0;
@@ -79,12 +89,16 @@ double Solver::entropyScore(int guess, span<const pair<int, int>> candSet) {
 }
 
 void Solver::filterWords(const int guess, pattern &p) {
+    // Instead of removing words that do not follow the pattern,
+    // we shuffle the vector such that the first k elements being the elements
+    // that do follow the pattern
     uint8_t target = PatternEngine::encodePattern(p);
 
     int new_size = 0;
     for (int i = 0; i < candidateSetSize; i++)
         if (PatternEngine::pm(guess, candidateSet[i].first) == target)
             swap(candidateSet[new_size++], candidateSet[i]);
+    // Control the actual candidateSet size with this variable
     candidateSetSize = new_size;
 }
 
@@ -107,17 +121,24 @@ string Solver::bestGuessEntropy() {
 
 int Solver::bestGuessIdxEntropy() {
     int n = candidateSetSize;
+    // If n <= 2, its beneficial to just return one of the candidates instead of
+    // searching the entire guessSet for the optimal guess
     if (n <= 2)
         return candidateSet[0].second;
 
+    // We use a static array here as an optimization
     static bool isCand[GUESS_SET_SIZE];
     std::memset(isCand, 0, sizeof(bool) * GUESS_SET_SIZE);
     for (int i = 0; i < n; i++)
         isCand[candidateSet[i].second] = true;
 
+    // We loop through all of the guess set and calculate the entropy scores for
+    // each one We then return the guess idx of the word that scored the highest
     double ma = -1e18;
     int maxidx = -1;
     for (int i = 0; i < GUESS_SET_SIZE; i++) {
+        // If the current word we are scoring is a candidate, we want to
+        // slightly favor it So, we add a small entropy value
         double entropy =
             entropyScore(i, span(candidateSet).first(candidateSetSize)) +
             (isCand[i] ? 0.001 : 0.0);
@@ -134,8 +155,13 @@ int Solver::bestGuessIdxEntropy() {
 void Solver::sortByEntropy(vector<int> &guessOrder,
                            span<const pair<int, int>> candidates,
                            bool fullSearch) {
+    // This function is called a riduculous amount of times. So, we need it to
+    // be fully optimized
+
     int n = candidates.size();
     if (n <= CANDIDATE_ONLY_THRESHOLD) {
+        // If the candidate set size is below this threshold, we are only going
+        // to evaluate these candidates
         vector<pair<double, int>> entropy(n);
         for (int i = 0; i < n; i++) {
             int g = candidates[i].second;
@@ -148,14 +174,18 @@ void Solver::sortByEntropy(vector<int> &guessOrder,
         return;
     }
 
+    // We score the entire guess set with respect to the current candidates
     vector<pair<double, int>> entropy;
     entropy.resize(GUESS_SET_SIZE);
+    // We parallelize the scoring as it is independent
 #pragma omp parallel for schedule(static) if (!omp_in_parallel())
     for (int i = 0; i < GUESS_SET_SIZE; i++)
         entropy[i] = {entropyScore(i, candidates), i};
 
     int cap = GUESS_SET_SIZE;
     if (!fullSearch) {
+        // We do not sort the entire entropy values if it is not a fullSearch
+        // Instead, we sort only the first ENTROPY_SORT_CAP elements
         cap = min(ENTROPY_SORT_CAP, GUESS_SET_SIZE);
         ranges::nth_element(entropy, entropy.begin() + cap, greater<>());
     }
@@ -169,16 +199,22 @@ void Solver::sortByEntropy(vector<int> &guessOrder,
 int Solver::minimax(span<const pair<int, int>> candidates, int alpha,
                     int *bestGuessOut, const ProgressFn &onProgress) {
     int n = candidates.size();
+    // Base case: this is mathematically optimal to guess one of the candidates
     if (n <= 2) {
         if (bestGuessOut)
             *bestGuessOut = candidates[0].second;
         return n;
     }
 
+    // if alpha is < 2, a better ans cant be achieved. So, we return
     if (alpha < 2)
         return alpha;
+    // We want to cap the depth of the search
     alpha = min(alpha, MINIMAX_MAX_DEPTH);
 
+    // We save convert the candidate set into a key and use that as a search
+    // into the mmCache This is key is order independent If a result is already
+    // cache, we use that
     static thread_local vector<uint16_t> keyBuf;
     keyBuf.resize(n);
     for (int i = 0; i < n; i++)
@@ -192,22 +228,29 @@ int Solver::minimax(span<const pair<int, int>> candidates, int alpha,
     }
     vector<uint16_t> key(keyBuf.begin(), keyBuf.end());
 
+    // Order the guesses according to the current candidate set
     vector<int> guessOrder;
     sortByEntropy(guessOrder, candidates, onProgress != nullptr);
     int totalGuesses = guessOrder.size();
 
-    vector<pair<int, int>> flat;
-    flat.resize(n);
+    // flatBuckets holds the candidates according to the patten it follows
+    vector<pair<int, int>> flatBuckets;
+    flatBuckets.resize(n);
+    // the current best is alpha
     int best = alpha;
     int bestGuessIdx = -1;
 
     for (int gi = 0; gi < totalGuesses; gi++) {
         int guessIdx = guessOrder[gi];
         int counts[243] = {}, starts[244] = {}, pos[243];
-
+        // Loop through the candidates and count the number of words in each
+        // bucket
         for (auto &c : candidates)
             counts[PatternEngine::pm(guessIdx, c.first)]++;
-
+        // If the guess produces exactly one non-winning bucket contiaining all
+        // candidates, then the reduced candidateSet would equal the current
+        // set, meaning we cant parition the candidates, meaning zero
+        // information
         bool zeroInfo = false;
         for (int p = 0; p < 243; p++)
             if (p != CORRECT_GUESS && counts[p] == n) {
@@ -216,11 +259,13 @@ int Solver::minimax(span<const pair<int, int>> candidates, int alpha,
             }
 
         if (!zeroInfo) {
+            // starts[p] = offset in flatBuckets where pattern p's bucket begins
+            // pos[p] = working copy of starts
             for (int p = 0; p < 243; p++)
                 starts[p + 1] = starts[p] + counts[p];
             memcpy(pos, starts, 243 * sizeof(int));
             for (auto &c : candidates)
-                flat[pos[PatternEngine::pm(guessIdx, c.first)]++] = c;
+                flatBuckets[pos[PatternEngine::pm(guessIdx, c.first)]++] = c;
 
             int worst = 0;
             bool pruned = false;
@@ -229,14 +274,20 @@ int Solver::minimax(span<const pair<int, int>> candidates, int alpha,
                 if (!counts[p])
                     continue;
 
+                // for each non-empty bucket,
+                // if p is not the correct guess, the cost = 1 + minimax(bucket
+                //                                                       value)
                 int cost;
                 if (p == CORRECT_GUESS) {
                     cost = 1;
                 } else {
-                    auto bucket = span(flat.data() + starts[p], counts[p]);
+                    auto bucket =
+                        span(flatBuckets.data() + starts[p], counts[p]);
                     cost = 1 + minimax(bucket, best - 1);
                 }
 
+                // If the worst case found is worse than the current best, we
+                // know we will not continue down with this guess. We prune
                 worst = max(worst, cost);
                 if (worst >= best)
                     pruned = true;
@@ -252,8 +303,9 @@ int Solver::minimax(span<const pair<int, int>> candidates, int alpha,
             onProgress(gi + 1, totalGuesses);
     }
 
+    // Update the mmCache if we found a guess strictly better
     if (bestGuessIdx != -1)
-        mmCache.emplace(std::move(key), make_pair(best, bestGuessIdx));
+        mmCache[std::move(key)] = make_pair(best, bestGuessIdx);
 
     if (bestGuessOut)
         *bestGuessOut = bestGuessIdx;
@@ -361,6 +413,7 @@ void Solver::saveMMCache(const string &fname) const {
     if (!f)
         throw runtime_error("Cannot open " + fname);
 
+    // Calculate the totalBytes of the mmCache
     size_t totalBytes = sizeof(uint32_t);
     for (const auto &[key, val] : mmCache)
         totalBytes += sizeof(uint32_t) +
@@ -390,7 +443,7 @@ void Solver::saveMMCache(const string &fname) const {
         buf += sizeof(vals);
     }
 
-    // 5. Blast the entire buffer to disk in exactly ONE write call
+    // Blast the entire buffer to disk in exactly ONE write call
     f.write(buffer.data(), totalBytes);
 }
 
@@ -406,19 +459,19 @@ void Solver::loadMMCache(const string &fname) {
     if (size == 0)
         return; // Handle edge case of an empty file
 
-    // 1. Read the entire file into memory in EXACTLY ONE disk read
+    // Read the entire file into memory in EXACTLY ONE disk read
     vector<char> buffer(size);
     if (!f.read(buffer.data(), size))
         throw runtime_error("Error reading file into memory: " + fname);
 
-    // 2. Setup pointers to iterate through the raw memory buffer
+    // Setup pointers to iterate through the raw memory buffer
     const char *ptr = buffer.data();
     const char *end = ptr + size;
 
     if (ptr + sizeof(uint32_t) > end)
         throw runtime_error("File corrupted: too small for count");
 
-    // 3. Extract the count
+    // Extract the count
     uint32_t count;
     memcpy(&count, ptr, sizeof(count));
     ptr += sizeof(count);
@@ -426,7 +479,7 @@ void Solver::loadMMCache(const string &fname) {
     mmCache.clear();
     mmCache.reserve(count);
 
-    // 4. Sequentially parse the buffer
+    // Sequentially parse the buffer
     for (uint32_t i = 0; i < count; i++) {
         // Extract key length
         if (ptr + sizeof(uint32_t) > end)
