@@ -105,3 +105,8 @@ void PatternEngine::buildMatrix() {
             patternMatrix[i * CANDIDATE_SET_SIZE + j] =
                 computePattern(guessSet[i], candidateSetWords[j]);
 }
+
+int PatternEngine::getWordGuessIdx(string word) {
+    auto it = find(guessSet.begin(), guessSet.end(), word);
+    return it == guessSet.end() ? -1 : distance(guessSet.begin(), it);
+}

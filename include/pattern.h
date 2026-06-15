@@ -26,4 +26,6 @@ class PatternEngine {
         static void buildMatrix();
         static void loadPatternMatrix(string fname);
         static void precomputeMatrix(string fname);
+
+        static int getWordGuessIdx(string word);
 };
