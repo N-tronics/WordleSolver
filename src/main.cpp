@@ -156,7 +156,7 @@ int main() {
              "data/mmcache.bin");
     cout << endl;
 
-    // testAvgGuess(s);
+    testAvgGuess(s);
 
     playGame(s);
 }
