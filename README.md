@@ -5,7 +5,7 @@ C++20 Wordle solver with two strategies sharing a precomputed pattern matrix: an
 ## Results
 
 | Strategy | Avg. guesses |
-|---|---|---|
+|---|---|
 | Entropy (greedy) | 3.46 |
 | Minimax + alpha-beta | 3.52 |
 
